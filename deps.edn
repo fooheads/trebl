@@ -1,0 +1,19 @@
+{:paths ["src"]
+ :deps
+ {fooheads/appzero    {:git/url "git@github.com:fooheads/appzero.git"
+                       :sha "0294895fa4c3774ad28a7b3f65996238cf170e17"}
+  mvxcvi/puget        {:mvn/version "1.3.1"}
+  org.jline/jline     {:mvn/version "3.9.0"}}
+
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps
+                  {lambdaisland/kaocha           {:mvn/version "1.0.672"}
+                   lambdaisland/kaocha-junit-xml {:mvn/version "0.0.76"}
+                   lambdaisland/kaocha-cljs      {:mvn/version "0.0-71"}}
+
+                  :main-opts  ["-m" "kaocha.runner" "clj"
+                               "--plugin" "capture-output"
+                               "--plugin" "junit-xml"
+                               "--junit-xml-file" "target/kaocha/unit-test-result.xml"]}}}
+
+
