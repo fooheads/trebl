@@ -1,5 +1,7 @@
 (ns trebl.core
   (:refer-clojure :exclude [key pop])
+  (:require
+    [clojure.string :as str])
   (:import [org.jline.terminal TerminalBuilder Terminal]))
 
 
@@ -34,9 +36,10 @@
 
 
 (defn ->str [v max-width]
-  (let [c (pr-str v)
-        width (min max-width (count c))]
-    (subs (pr-str v) 0 width)))
+  (let [s (pr-str v)
+        s (str/replace s #"\s" " ")
+        width (min max-width (count s))]
+    (subs s 0 width)))
 
 
 (defn screen-table [width kv-table]
@@ -70,7 +73,8 @@
   [v]
   (cond
     (map? v) (sort (seq v))
-    (seqable? v) (map vector (range) v)))
+    (seqable? v) (map vector (range) v)
+    (instance? java.lang.Throwable v) (kv-table (Throwable->map v))))
 
 
 (defn new-terminal
@@ -113,7 +117,10 @@
 
 
 (defn pushable? [state]
-  (seqable? (value state)))
+  (let [v (value state)]
+    (or
+      (instance? Throwable v)
+      (seqable? (value state)))))
 
 
 (defn push [state]
@@ -248,6 +255,7 @@
 (def example-data
   {:chart (with-meta [1 2 3] {:rebl/xy-chart {:title "My Stuff"}})
    :code '(defn foo [x] "Hello World")
+   :exception (try (/ 1 0) (catch Exception e e))
    :keyed-pairs {:a [[1 3] [-3 5]] :b [[4 8]]}
    :nested-map {:name "Jane Doe"
                 :address1
@@ -266,5 +274,10 @@
 
 (comment
   (trebl example-data)
-  (trebl (ns-publics 'trebl.core)))
+  (trebl (ns-publics 'trebl.core))
+
+  (instance? java.lang.Throwable (:exception example-data))
+
+  (kv-table example-data)
+  (pr-str (:exception example-data)))
 
