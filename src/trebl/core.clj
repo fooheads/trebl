@@ -69,6 +69,7 @@
   "Turns v into a seq of [k v] pairs.
   If v is a map, k will be the key.
   If v is something else seqable?, k will be the index.
+  If v is a Throwable, nil is returned
   If v is not seqable?, nil is returned"
   [v]
   (cond
@@ -120,7 +121,7 @@
   (let [v (value state)]
     (or
       (instance? Throwable v)
-      (seqable? (value state)))))
+      (and (seqable? v) (seq v)))))
 
 
 (defn push [state]
@@ -255,6 +256,8 @@
 (def example-data
   {:chart (with-meta [1 2 3] {:rebl/xy-chart {:title "My Stuff"}})
    :code '(defn foo [x] "Hello World")
+   :empty-map {}
+   :empty-vec []
    :exception (try (/ 1 0) (catch Exception e e))
    :keyed-pairs {:a [[1 3] [-3 5]] :b [[4 8]]}
    :nested-map {:name "Jane Doe"
