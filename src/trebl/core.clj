@@ -42,7 +42,15 @@
     (subs s 0 width)))
 
 
-(defn screen-table [width kv-table]
+(defn apply-viewer [v brief-viewers]
+  (reduce
+    (fn [v [pred viewer]]
+      (if (pred v) (viewer v) v))
+    v
+    brief-viewers))
+
+
+(defn screen-table [width kv-table brief-viewers]
   ;; guard that at leact one char of k and v fits
   (let [ks (map first kv-table)
         ;xs (map second kv-table)
@@ -60,8 +68,8 @@
                         "%-" val-width "s")]
 
     (for [[k v] kv-table]
-      (let [key-str       (->str k key-width)
-            val-str       (->str v val-width)]
+      (let [key-str (-> k (->str key-width))
+            val-str (-> v (apply-viewer brief-viewers) (->str val-width))]
         (format format-str key-str separator val-str)))))
 
 
@@ -191,7 +199,7 @@
    (map key)))
 
 
-(defn execute-loop [terminal data _options]
+(defn execute-loop [terminal data options]
   (let [width (:width @terminal)
         height (:height @terminal)
         data-width (- width 4)  ; Leave 2 cols for the cursor
@@ -204,7 +212,8 @@
             ;path (map :cursor-row state-stack)
 
             table (kv-table data)
-            s-table (screen-table data-width table)]
+            brief-viewers (:brief-viewers options)
+            s-table (screen-table data-width table brief-viewers)]
 
         (print-screen! (inc index) s-table)
 
@@ -281,7 +290,13 @@
 
 
 (comment
-  (trebl example-data)
+  (def options
+    {:brief-viewers  ; A vector of [pred mapper] tuples. First one wins, if any.
+     [[string? clojure.string/reverse]
+      [map? keys]]})
+
+  (trebl example-data options)
+
   (trebl (ns-publics 'trebl.core))
 
   (instance? java.lang.Throwable (:exception example-data))
