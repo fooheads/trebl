@@ -119,9 +119,10 @@
 
 (defn pushable? [state]
   (let [v (value state)]
-    (or
-      (instance? Throwable v)
-      (and (seqable? v) (seq v)))))
+    (boolean
+      (or
+       (instance? Throwable v)
+       (and (seqable? v) (seq v))))))
 
 
 (defn push [state]
@@ -190,7 +191,7 @@
    (map key)))
 
 
-(defn execute-loop [terminal data]
+(defn execute-loop [terminal data _options]
   (let [width (:width @terminal)
         height (:height @terminal)
         data-width (- width 4)  ; Leave 2 cols for the cursor
@@ -240,17 +241,21 @@
   (.close (:terminal @terminal)))
 
 
-(defn trebl [data]
-  (let [terminal (atom (new-terminal "term"))]
-    (.enterRawMode (:terminal @terminal))
-    (try
-      (execute-loop terminal data)
-      (catch Exception e
-        (println "Not good...")
-        (println (.getMessage e))
-        (.printStackTrace e))
-      (finally
-        (close-terminal terminal)))))
+(defn trebl
+  ([data]
+   (trebl data {}))
+
+  ([data options]
+   (let [terminal (atom (new-terminal "term"))]
+     (.enterRawMode (:terminal @terminal))
+     (try
+       (execute-loop terminal data options)
+       (catch Exception e
+         (println "Not good...")
+         (println (.getMessage e))
+         (.printStackTrace e))
+       (finally
+         (close-terminal terminal))))))
 
 
 (def example-data

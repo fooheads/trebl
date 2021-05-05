@@ -38,13 +38,13 @@
 
 
 (deftest maps-should-be-pushable-test
-  (let [state (-> example-state (trebl/set-index 3))]
+  (let [state (-> example-state (trebl/set-index 6))]
     (is (true? (trebl/pushable? state)))))
 
 
 (deftest right-into-map-should-work-test
   (let [state (-> example-state
-                  (trebl/set-index 3)
+                  (trebl/set-index 6)
                   (trebl/right))]
     (is (= (:nested-map example-data) (trebl/data state)))
     (is (= 0 (trebl/index state)))))
