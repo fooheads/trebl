@@ -81,7 +81,7 @@
   If v is not seqable?, nil is returned"
   [v]
   (cond
-    (map? v) (sort (seq v))
+    (map? v) (sort-by (fn [[k _v]] (str k)) (seq v))
     (seqable? v) (map vector (range) v)
     (instance? java.lang.Throwable v) (kv-table (Throwable->map v))))
 
@@ -274,6 +274,7 @@
    :empty-vec []
    :exception (try (/ 1 0) (catch Exception e e))
    :keyed-pairs {:a [[1 3] [-3 5]] :b [[4 8]]}
+   {:map :key} {:map :value}
    :nested-map {:name "Jane Doe"
                 :address1
                 {:street "Main Street 1"
@@ -281,12 +282,15 @@
                 :address2
                 {:street "Main Street 2"
                  :city "New York"}}
+   nil nil
    :pairs [[1 2] [-3 5]]
    :powers [0 1 4 9 16 25 36]
    :scalar "Hello World"
+   "string key" "string value"
+   'symbol-key 'symbol-value
    :tuples [[1 2] [3 4] [5 6]]
-   :uber (repeatedly 40 (fn [] {:alpha (rand-int 100)
-                                :beta (rand-int 100)}))})
+   :uber (repeatedly 120 (fn [] {:alpha (rand-int 100)
+                                 :beta (rand-int 100)}))})
 
 
 (comment
@@ -297,10 +301,11 @@
 
   (trebl example-data options)
 
+  (trebl example-data)
+
   (trebl (ns-publics 'trebl.core))
 
   (instance? java.lang.Throwable (:exception example-data))
 
-  (kv-table example-data)
-  (pr-str (:exception example-data)))
+  (kv-table example-data))
 
