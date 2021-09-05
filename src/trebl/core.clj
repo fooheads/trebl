@@ -5,34 +5,105 @@
   (:import [org.jline.terminal TerminalBuilder Terminal]))
 
 
+(defn interleave-with-default [xs ys default-value]
+  (loop [res []
+         [x & xs] xs
+         [y & ys] ys]
+    (if (or x y)
+      (recur (conj res [(or x default-value) (or y default-value)]) xs ys)
+      res)))
+
+
+(defn line-diffs [is was]
+  (loop [col 0
+         diffs []
+         ongoing nil
+         [[is was] & pairs] (interleave-with-default is was nil)]
+
+    (if (or is was)
+      (if (= is was)
+        (if ongoing
+          (recur (inc col) (conj diffs ongoing) nil pairs)
+          (recur (inc col) diffs nil pairs))
+        (if ongoing
+          (recur (inc col) diffs (update ongoing :value conj is) pairs)
+          (recur (inc col) diffs (conj {:col col :value [is]}) pairs)))
+      (if ongoing
+        (conj diffs ongoing)
+        diffs))))
+
+
+(defn diff [is was]
+  (let [line-pairs (interleave-with-default is was nil)]
+
+    (loop [row 0
+           diffs []
+           [pair & pairs] line-pairs]
+      (if pair
+        (let [[is was] pair]
+          (if (= is was)
+            (recur (inc row) diffs pairs)
+            (recur
+              (inc row)
+              (concat
+                diffs
+                (map (fn [col-diff] (merge {:row row} col-diff)) (line-diffs is was)))
+              pairs)))
+        diffs))))
+
+
 (def ESC (str (char 27)))
 
 
 (defn cursor-pos [row col]
-  (str ESC "[" row ";" col "H"))
+  (str ESC "[" (inc row) ";" (inc col) "H"))
 
 
 (defn clear-screen []
   (str ESC "[2J"))
 
 
-(defn print-screen!
-  "Prints a screen from pos (1,1)"
-  [cursor-row screen]
-  (print (clear-screen))
-  (print (cursor-pos 1 1))
+(defn trace
+  ([row s]
+   (print (cursor-pos row 1))
+   (println (format "%-20s" s))
+   (flush)))
 
+
+(defonce ^:private last-screen (atom nil))
+
+
+(defn diff-value->str [xs]
+  (str/join (map (fn [c] (if (nil? c) " " c))  xs)))
+
+
+(defn diff-to-ansi [diff]
+  (str (cursor-pos (:row diff) (:col diff)) (diff-value->str (:value diff))))
+
+
+(defn diffs-to-ansi [diffs]
+  (map diff-to-ansi diffs))
+
+
+(defn print-screen!
+  "Prints a screen"
+  [cursor-row screen]
   (let [screen-with-cursor
         (map-indexed
           (fn [index line]
-            (let [cursor (if (= (inc index) cursor-row)
-                           ">"
-                           " ")]
+            (let [cursor (if (= index cursor-row) ">" " ")]
               (format "%s %s" cursor line)))
-          screen)]
+          screen)
 
-    (doseq [line screen-with-cursor]
-      (println line))))
+        diffs (diff screen-with-cursor @last-screen)
+        ansi-statements (diffs-to-ansi diffs)]
+
+      (doseq [ansi-statement ansi-statements]
+        (print ansi-statement))
+
+      (print (cursor-pos cursor-row 0))
+      (flush)
+      (reset! last-screen screen-with-cursor)))
 
 
 (defn ->str [v max-width]
@@ -110,12 +181,27 @@
   (second (nth (:table state) (:index state))))
 
 
-(defn new-state [data]
-  (let [table (kv-table data)
-        index 0]
-    {:data data
-     :table table
-     :index index}))
+(defn new-state
+  ([height width data]
+   (let [table (kv-table data)
+         index 0]
+     {:height height
+      :width width
+      :data data
+      :table table
+      :index index
+      :cursor-row index
+      :top-row index})))
+
+
+(defn trace-state [row state]
+  (print (cursor-pos row 0))
+  (println (format ":height      %5d" (:height state)))
+  (println (format ":width       %5d" (:width state)))
+  (println (format ":index       %5d" (:index state)))
+  (println (format ":cursor-row  %5d" (:cursor-row state)))
+  (println (format ":top-row     %5d" (:top-row state))))
+
 
 (defn index [state] (:index state))
 (defn data [state] (:data state))
@@ -135,7 +221,7 @@
 
 (defn push [state]
   (->
-    (new-state (value state))
+    (new-state (:height state) (:width state) (value state))
     (update :stack (fn [stack] (cons state stack)))))
 
 
@@ -150,40 +236,114 @@
   state)
 
 
-(defn down? [state]
-  (< (:index state) (dec (count (:table state)))))
+(defn cursor-top? [state]
+  (= 0 (:cursor-row state)))
+
+
+(defn cursor-bottom? [state]
+  (= (dec (:height state)) (:cursor-row state)))
+
+
+(defn index-top? [state]
+  (= 0 (:index state)))
+
+
+(defn index-bottom? [state]
+  (= (dec (count (:table state))) (:index state)))
+
+
+(defn cursor-down [state]
+  (if (not (cursor-bottom? state))
+    (update state :cursor-row inc)
+    state))
+
+
+(defn cursor-up [state]
+  (if (not (cursor-top? state))
+    (update state :cursor-row dec)
+    state))
+
+
+(defn index-down [state]
+  (if-not (index-bottom? state)
+    (update state :index inc)
+    state))
+
+
+(defn index-up [state]
+  (if-not (index-top? state)
+    (update state :index dec)
+    state))
+
+
+(defn top-row-down [state]
+  (if (cursor-bottom? state)
+    (update state :top-row inc)
+    state))
+
+
+(defn top-row-up [state]
+  (if (cursor-top? state)
+    (update state :top-row dec)
+    state))
 
 
 (defn go-down [state]
-  (-> state (update :index inc)))
+  (->
+    state
+    (top-row-down)
+    (index-down)
+    (cursor-down)))
 
 
 (defn go-up [state]
-  (update state :index dec))
+  (->
+    state
+    (top-row-up)
+    (index-up)
+    (cursor-up)))
+
+
+(defn down? [state]
+  (not (index-bottom? state)))
 
 
 (defn up? [state]
-  (< 0 (:index state)))
+  (not (index-top? state)))
 
 
-(defn down [state]
-  (if (down? state) (go-down state) (noop state)))
+#_(defn down [state]
+    (if (down? state) (go-down state) (noop state)))
 
 
-(defn up [state]
-  (if (up? state) (go-up state) (noop state)))
+(defn down
+  ([state]
+   (down 1 state))
+
+  ([n state]
+   (reduce
+     (fn [state _n]
+       (if (down? state) (go-down state) (noop state)))
+     state
+     (range n))))
+
+
+(defn up
+  ([state]
+   (up 1 state))
+
+  ([n state]
+   (reduce
+     (fn [state _n]
+       (if (up? state) (go-up state) (noop state)))
+     state
+     (range n))))
 
 
 (defn left [state]
   (if (poppable? state)
     (pop state)
     state))
-
-
-(defn trace [s]
-  (print (cursor-pos 20 1))
-  (println s)
-  (flush))
 
 
 (defn right [state]
@@ -201,33 +361,26 @@
 
 (defn execute-loop [terminal data options]
   (let [width (:width @terminal)
-        height (:height @terminal)
-        data-width (- width 4)  ; Leave 2 cols for the cursor
+        height (- (:height @terminal) 1)
+        ;; trace-row (+ 2 height)
+        data-width (- width 2)  ; Leave some cols for the cursor
         reader (:reader @terminal)]
-    (loop [state (new-state data)
+    (loop [state (new-state height data-width data)
            stack (list)]
 
       (let [data (:data state)
-            index (:index state)
             ;path (map :cursor-row state-stack)
 
-            table (kv-table data)
+            table (->> data (kv-table) (drop (:top-row state)) (take (:height state)))
             brief-viewers (:brief-viewers options)
             s-table (screen-table data-width table brief-viewers)]
 
-        (print-screen! (inc index) s-table)
-
-        ; Print status
-        ; (print (cursor-pos 60 1))
-        ; (println (format "%d | %s"
-        ;                  (:index state)
-        ;                  (pr-str (path state))))
-
-        ; Top row
-        (print (cursor-pos 1 1))
+        ;; (trace-state trace-row state)
+        (print-screen! (:cursor-row state) s-table)
 
         (let [char-int (.read reader)
               c (char char-int)]
+          ;; (trace 60 (int c))
           (if (= \q c)
             (do
               (print (cursor-pos height 1))  ; Set cursor to bottom
@@ -258,6 +411,8 @@
    (let [terminal (atom (new-terminal "term"))]
      (.enterRawMode (:terminal @terminal))
      (try
+       (print (clear-screen))
+       (reset! last-screen nil)
        (execute-loop terminal data options)
        (catch Exception e
          (println "Not good...")
@@ -289,8 +444,11 @@
    "string key" "string value"
    'symbol-key 'symbol-value
    :tuples [[1 2] [3 4] [5 6]]
-   :uber (repeatedly 120 (fn [] {:alpha (rand-int 100)
-                                 :beta (rand-int 100)}))})
+   :uber
+   (map-indexed
+     (fn [index m] (merge {:index index} m))
+     (repeatedly 120 (fn [] {:alpha (rand-int 100)
+                             :beta (rand-int 100)})))})
 
 
 (comment
@@ -307,5 +465,22 @@
 
   (instance? java.lang.Throwable (:exception example-data))
 
-  (kv-table example-data))
+
+  ;; Testing line-diffs
+  (line-diffs "foobar is the very best" "foogar is the best")
+
+  ;; Testing diff
+
+  (defn make-screen [data]
+    (screen-table 40 (kv-table data) {}))
+
+  (def s1 (make-screen example-data))
+  (def s2 (make-screen (assoc-in example-data [:powers 4] 160)))
+  (def s3 (make-screen (assoc-in example-data [:scalar] "Hello världen!")))
+
+  (diff s2 s1)
+  (diff s3 s1)
+  (diff s3 [])
+  (diff [] s3))
+
 
