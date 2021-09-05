@@ -4,17 +4,21 @@
     [trebl.core :as trebl :refer [example-data]]))
 
 
-(def example-state (trebl/new-state example-data))
+(def example-state (trebl/new-state 10 200 example-data))
 (def example-size (count example-data))
 (def example-first-index 0)
 (def example-last-index (dec example-size))
 
 
 (deftest new-state-test
-  (is (= {:data {:a 1 :b 2}
+  (is (= {:height 10
+          :width 200
+          :data {:a 1 :b 2}
           :table [[:a 1] [:b 2]]
-          :index 0}
-         (trebl/new-state {:a 1 :b 2}))))
+          :index 0
+          :cursor-row 0
+          :top-row 0}
+         (trebl/new-state 10 200 {:a 1 :b 2}))))
 
 
 (deftest down-test
@@ -43,8 +47,8 @@
 
 
 (deftest right-into-map-should-work-test
-  (let [state (-> example-state
-                  (trebl/set-index 6)
+  (let [state (->> example-state
+                  (trebl/down 7)
                   (trebl/right))]
     (is (= (:nested-map example-data) (trebl/data state)))
     (is (= 0 (trebl/index state)))))

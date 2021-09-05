@@ -440,13 +440,13 @@
 
 
 (def example-data
-  {:chart (with-meta [1 2 3] {:rebl/xy-chart {:title "My Stuff"}})
+  {nil nil
+   :chart (with-meta [1 2 3] {:rebl/xy-chart {:title "My Stuff"}})
    :code '(defn foo [x] "Hello World")
    :empty-map {}
    :empty-vec []
    :exception (try (/ 1 0) (catch Exception e e))
    :keyed-pairs {:a [[1 3] [-3 5]] :b [[4 8]]}
-   {:map :key} {:map :value}
    :nested-map {:name "Jane Doe"
                 :address1
                 {:street "Main Street 1"
@@ -454,18 +454,18 @@
                 :address2
                 {:street "Main Street 2"
                  :city "New York"}}
-   nil nil
    :pairs [[1 2] [-3 5]]
    :powers [0 1 4 9 16 25 36]
    :scalar "Hello World"
-   "string key" "string value"
-   'symbol-key 'symbol-value
    :tuples [[1 2] [3 4] [5 6]]
    :uber
    (map-indexed
      (fn [index m] (merge {:index index} m))
      (repeatedly 120 (fn [] {:alpha (rand-int 100)
-                             :beta (rand-int 100)})))})
+                             :beta (rand-int 100)})))
+   "string key" "string value"
+   'symbol-key 'symbol-value
+   {:map :key} {:map :value}})
 
 
 (comment
