@@ -359,6 +359,17 @@
    (map key)))
 
 
+(defn help []
+  {:j :down
+   :k :up
+   :h :left
+   :l :right
+   :ctrl-d :page-down
+   :ctrl-u :page-up
+   :q :quit-and-return-current-value
+   :? :help})
+
+
 (defn execute-loop [terminal data options]
   (let [width (:width @terminal)
         height (- (:height @terminal) 1)
@@ -385,17 +396,23 @@
             (do
               (print (cursor-pos height 1))  ; Set cursor to bottom
               (:data state))                 ; Return the current data
-            (case (char char-int)
-              \j (recur (down state) stack)
-              \k (recur (up state) stack)
-              \h (if (poppable? stack)
-                   (recur (first stack) (rest stack))
-                   (recur state stack))
-              \l (if (pushable? state)
-                   (recur (right state) (cons state stack))
-                   (recur state stack))
+            (let [ch (char char-int)]
+              (cond
+                (= \j ch) (recur (down state) stack)
+                (= \k ch)  (recur (up state) stack)
+                (= \h ch) (if (poppable? stack)
+                            (recur (first stack) (rest stack))
+                            (recur state stack))
+                (= \l ch) (if (pushable? state)
+                            (recur (right state) (cons state stack))
+                            (recur state stack))
 
-              (recur state stack))))))))
+                (= 4 char-int)  (recur (down (quot height 2) state) stack)
+                (= 21 char-int)  (recur (up (quot height 2) state) stack)
+
+                (= \? ch) (recur (new-state height width (help)) (cons state stack))
+
+                :else (recur state stack)))))))))
 
 
 (defn close-terminal [terminal]
