@@ -130,7 +130,7 @@
         separator-width (count separator)
         max-key-width (- width separator-width 3)
 
-        key-width (apply max (map #(count (str %)) ks))
+        key-width (apply max (map #(count (pr-str %)) ks))
         key-width (min max-key-width key-width)
 
         val-width (max 0 (- width key-width separator-width))
