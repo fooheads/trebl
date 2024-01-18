@@ -152,6 +152,7 @@
   If v is not seqable?, nil is returned"
   [v]
   (cond
+    (and (map? v) (sorted? v)) (map vector (keys v) (vals v))
     (map? v) (sort-by (fn [[k _v]] (str k)) (seq v))
     (seqable? v) (map vector (range) v)
     (instance? java.lang.Throwable v) (kv-table (Throwable->map v))))
@@ -477,6 +478,9 @@
   (trebl example-data options)
 
   (trebl example-data)
+
+  (trebl {4 :d 1 :a 2 :b 3 :c})
+  (trebl (into (sorted-map-by #(> %1 %2)) {4 :d 1 :a 2 :b 3 :c}))
 
   (trebl (ns-publics 'trebl.core))
 
