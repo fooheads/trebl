@@ -376,7 +376,8 @@
         height (- (:height @terminal) 1)
         ;; trace-row (+ 2 height)
         data-width (- width 2)  ; Leave some cols for the cursor
-        reader (:reader @terminal)]
+        reader (:reader @terminal)
+        cursor-to-bottom! #(print (cursor-pos height 1))] ; Set cursor to bottom
     (loop [state (new-state height data-width data)
            stack (list)]
 
@@ -393,10 +394,13 @@
         (let [char-int (.read reader)
               c (char char-int)]
           ;; (trace 60 (int c))
-          (if (= \q c)
+          (case c
+            \q
             (do
-              (print (cursor-pos height 1))  ; Set cursor to bottom
-              (:data state))                 ; Return the current data
+              (cursor-to-bottom!)
+              (:data state)) ; Return the current data
+            \Q
+            (cursor-to-bottom!)
             (let [ch (char char-int)]
               (cond
                 (= \j ch) (recur (down state) stack)
